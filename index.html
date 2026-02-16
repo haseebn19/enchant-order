@@ -1,178 +1,25 @@
+<!doctype html>
 <html lang="en">
-    <head>
-        <title>Minecraft Enchantment Ordering Tool</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta charset="utf-8">
-        <script src="https://code.jquery.com/jquery-3.6.0.slim.min.js" integrity="sha256-u7e5khyithlIdTpu22PHhENmPcRdFiHRjhAuHcs05RI=" crossorigin="anonymous"></script>
-        <script src="data.js?11"></script>
-        <script src="script.js?17"></script>
-        <link rel="stylesheet" type="text/css" href="style.css?3">
-        <script src="https://unpkg.com/@hungrybluedev/theme-switcher@latest/dist/switch.js" type="module" defer></script>
-        <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
-        <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32x32.png">
-        <link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16x16.png">
-        <link rel="manifest" href="./site.webmanifest">
-    </head>
-    <body>
-
-        <div class="inner">
-            
-            <div class="top-container">
-                <p>
-                    <label for="language"></label>
-                    <select id="language" class="selectLanguage">
-                        <option value="">Choose a language</option>
-                    </select>
-                </p>
-                
-            </div>
-            
-            <h1>Minecraft Enchantment Ordering Tool</h1>
-
-            <p>
-                When enchanting items in Minecraft, the order in which you combine armor, weapons and tools with books in your
-                anvil makes a huge difference. Each time you work on an anvil, you increase the <a href="https://minecraft.wiki/w/Anvil_mechanics">work penalty</a> for future workings. Once that
-                penalty gets too high, you simply can't add any more enchantments and the anvil says "Too Expensive!". This tool
-                helps you plan the optimal order of combining and applying books, to give you the cheapest possible cost.
-            </p>
-            <p>
-                This tool assume your gear and books start with zero "work penalty". That means you have not previously combined
-                the books (e.g. to turn two level 1 books into a single level 2 book) or worked the items or books in an anvil
-                in any way. To create gear with the maximum possible enchantment, you cannot combine lower-level books and must
-                start with high-level books from villager trading.
-            </p>
-            <p>
-                Allowing incompatible enchantments may be useful for combining protection-type enchantments (1.14 to 1.14.3pre-1)
-                and mending/infinity (1.9 to 1.11.1).
-            </p>
-
-            <hr>
-
-            <div id="left">
-
-                <p>
-                    <label for="item"></label>
-                    <select id="item" class="selectItem">
-                        <option value="">Choose an item to enchant</option>
-                    </select>
-                </p>
-
-                <div id="enchants" style="display: none">
-                    <table></table>
-
-                    <div id="overrides" style="">
-                        <div>
-                            <label>
-                                <input type="checkbox" id="allow_incompatible" onchange="allowIncompatibleChanged()">
-                                <span id="override-incompatible">Allow incompatible enchantments</span>
-                            </label>
-                        </div>
-                        <div>
-                            <label>
-                                <input type="checkbox" id="allow_many" onchange="allowManyChanged()">
-                                <span id="override-max-number">Allow more than 10 enchantments</span>
-                            </label>
-                        </div>
-                    </div>
-                    <p>
-                        <button id="calculate">Calculate &raquo;</button>
-                    </p>
-                </div>
-            </div>
-
-            <div id="right">
-
-                <p id="mode_selection">
-                    <span id="optimize-label">Optimize for:</span>
-                    <label>
-                        <input type="radio" name="cheapness-mode" checked="checked" value="levels">
-                        <span id="optimize-xp">Least XP/Levels</span>
-                    </label>
-                    <label>
-                        <input type="radio" name="cheapness-mode" value="prior_work">
-                        <span id="optimize-pwp">Least Prior Work Penalty</span>
-                    </label>
-                </p>
-
-                <div id="progress" style="display: none">
-                    <img src="spin.svg" width="20" height="20" alt="">
-                    <span class="lbl">Text here</span>
-                </div>
-
-                <div id="solution" style="display: none">
-                    <h2 id="solution-header">Optimal solution found!</h2>
-
-                    <p id="timings">Completed in under a second</p>
-                    <p><b id="total-cost-label">Total cost:</b> <span id="level-cost">####</span></p>
-                    <h3>Steps</h3>
-                    <ol id="steps">
-                    </ol>
-                    <p id="xp-range-note" style="display: none">
-                        Note: The two XP values shown are the difference between saving up for all levels/XP in one go,
-                        versus gaining levels/XP between each enchantment step.
-                    </p>
-                </div>
-
-                <div id="error" style="display: none">
-                    <span class="lbl">Text here</span>
-                </div>
-
-                <div id="phone-warn" style="display: none">
-                    <span class="lbl">
-                        You have selected many enchantments and are using a phone or tablet - the calculator may run out of memory and crash.
-                        Try selecting fewer enchantments, or using a computer.
-                    </span>
-                </div>
-
-            </div>
-        </div>
-        <div class="footer">
-            <div class="dark-mode-toggle-container">
-            <form id="theme-switcher-form">
-                <div>
-                <input
-                    type="radio"
-                    id="light-theme"
-                    name="theme-choice"
-                    value="light-theme"
-                    selected="selected"
-                />
-                <label for="light-theme"></label>
-                </div>
-
-                <div>
-                <input
-                    type="radio"
-                    id="dark-theme"
-                    name="theme-choice"
-                    value="dark-theme"
-                />
-                <label for="dark-theme"></label>
-                </div>
-
-                <div>
-                <input
-                    type="radio"
-                    id="wither-theme"
-                    name="theme-choice"
-                    value="wither-theme"
-                />
-                <label for="wither-theme"></label>
-                </div>
-
-                <div>
-                <input
-                    type="radio"
-                    id="crimson-theme"
-                    name="theme-choice"
-                    value="crimson-theme"
-                />
-                <label for="crimson-theme"></label>
-                </div>
-            </form>
-            </div>
-            <p>Built by Cal Henderson. <a href="https://github.com/iamcal/enchant-order">Source on Github</a></p>
-        </div>
-
-    </body>
+  <head>
+    <script>
+      (function () {
+        var t = localStorage.getItem('enchant-order-theme');
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+      })();
+    </script>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/gif" href="./images/book.gif" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Minecraft Enchantment Order</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>
