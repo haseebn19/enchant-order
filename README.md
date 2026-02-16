@@ -9,7 +9,7 @@ Web tool to find the optimal order for combining enchantment books in Minecraft 
 ## Features
 
 - **Optimal merge order**: Tries combinations to minimize total XP levels or prior work penalty.
-- **Item & enchantment picker**: Choose item type and select enchantments with level pills; incompatible groups shown.
+- **Item & enchantment picker**: Choose item type and select enchantments with level pills.
 - **Quick loadouts**: Preset enchant sets per item (e.g. Fortune / Silk Touch for tools).
 - **i18n**: Multiple languages (JSON in `public/languages/`); theme (system / light / dark).
 - **Responsive**: Works on desktop and mobile.
