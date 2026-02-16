@@ -29,7 +29,8 @@ const namespaceToTexture: Record<string, string> = {
 };
 
 export function getItemIconUrl(namespace: string): string {
-  return `/images/${namespace}.gif`;
+  const base = import.meta.env.BASE_URL;
+  return `${base}images/${namespace}.gif`;
 }
 
 export function getItemIconFallbackUrl(namespace: string): string | null {

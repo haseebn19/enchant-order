@@ -19,7 +19,8 @@ export function useLanguage() {
   }, []);
 
   useEffect(() => {
-    const url = `/languages/${langId}.json`;
+    const base = import.meta.env.BASE_URL;
+    const url = `${base}languages/${langId}.json`;
     fetch(url)
       .then((r) => {
         if (!r.ok) throw new Error(`Failed to load ${url}`);
