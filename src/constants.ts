@@ -1,14 +1,14 @@
 export const ENCHANTMENT_LIMIT = 10;
 
 export const LANGUAGES: Record<string, string> = {
-  en: 'English',
-  de: 'Deutsch',
+  'en': 'English',
+  'de': 'Deutsch',
   'es-ES': 'Español',
   'fr-FR': 'Français',
   'it-IT': 'Italiano',
-  id: 'Indonesia',
+  'id': 'Indonesia',
   'hu-HU': 'Magyar',
-  nl: 'Nederlands',
+  'nl': 'Nederlands',
   'pl-PL': 'Polski',
   'pt-BR': 'Português',
   'vi-VN': 'Tiếng Việt',
@@ -21,5 +21,5 @@ export const LANGUAGES: Record<string, string> = {
   'zh-TW': '繁體中文',
   'ja-JP': '日本語',
   'ko-KR': '한국어',
-  ar: 'اَلْعَرَبِيَّةُ',
+  'ar': 'اَلْعَرَبِيَّةُ',
 };
