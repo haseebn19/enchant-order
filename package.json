@@ -15,7 +15,8 @@
     "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
-    "sync:upstream": "node scripts/sync-upstream-langs.mjs"
+    "sync:upstream": "node scripts/sync-upstream-langs.mjs",
+    "sync:history": "git fetch upstream && git merge -X ours upstream/main && git rm -f style.css script.js langs.html languages/pl-PL.json || true && git commit --amend --no-edit"
   },
   "dependencies": {
     "react": "^19.2.4",

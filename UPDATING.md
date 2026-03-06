@@ -1,21 +1,27 @@
-# Updating from Upstream
+# Updating from iamcal/enchant-order
 
-This project is a rewrite of `iamcal/enchant-order`. Because the architecture changed, do NOT use `git merge upstream/main`.
+This project is a React rewrite. Do not use standard `git pull`.
 
-## 1. Sync Languages
+## Sync Git History
+To keep the fork's history clean without overwriting local changes:
 
-Merge new upstream translations into `public/languages/*.json`:
+```bash
+npm run sync:history
+```
+
+This runs `git merge -X ours` and ensures root files (`style.css`, `script.js`, `langs.html`, etc.) stay deleted.
+
+## Sync Translations
+To merge new upstream keys into `public/languages/` while keeping local overrides:
 
 ```bash
 npm run sync:upstream
-git diff public/languages/
 ```
 
-## 2. Sync Logic & Styles
-
-Upstream logic, styles, or HTML must be ported to React manually. To see all code changes (excluding language files) since last sync:
+## Review Upstream Changes
+To see what logic or CSS has changed in the original repo (excluding languages):
 
 ```bash
 git fetch upstream
-git log --patch --stat HEAD..upstream/main -- . ":(exclude)languages"
+git log -p HEAD..upstream/main -- . ":(exclude)languages"
 ```
