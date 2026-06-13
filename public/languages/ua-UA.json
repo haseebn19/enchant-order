@@ -66,7 +66,8 @@
         "carrot_on_a_stick": "Морква на паличці",
         "warped_fungus_on_a_stick": "Химерний гриб на паличці",
         "pumpkin": "Гарбуз",
-        "book": "Книга"
+        "book": "Книга",
+        "spear": "Спис"
     },
     "enchants": {
         "protection": "Захист",
@@ -110,6 +111,7 @@
         "vanishing_curse": "Прокляття зникнення",
         "density": "Щільність",
         "breach": "Пробивання",
-        "wind_burst": "Порив вітру"
+        "wind_burst": "Порив вітру",
+        "lunge": "Випад"
     }
 }
