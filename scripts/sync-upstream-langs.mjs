@@ -26,6 +26,8 @@ function deepMerge(local, upstream) {
             typeof result[key] === 'object' && result[key] !== null && !Array.isArray(result[key])
         ) {
             result[key] = deepMerge(result[key], upVal);
+        } else {
+            result[key] = upVal;
         }
     }
     return result;
