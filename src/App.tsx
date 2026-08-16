@@ -190,6 +190,7 @@ export default function App() {
                     allowIncompatible={allowIncompatible}
                     allowMany={allowMany}
                     lang={lang}
+                    langId={langId}
                     onToggle={toggleEnchant}
                     onAllowIncompatibleChange={setAllowIncompatible}
                     onAllowManyChange={setAllowMany}

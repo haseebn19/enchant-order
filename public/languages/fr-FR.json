@@ -64,7 +64,8 @@
         "carrot_on_a_stick": "Carotte sur un bâton",
         "warped_fungus_on_a_stick": "Champignon biscornu sur un bâton",
         "pumpkin": "Citrouille",
-        "book": "Livre"
+        "book": "Livre",
+        "spear": "Lance"
     },
     "enchants": {
         "protection": "Protection",

@@ -506,6 +506,11 @@
   font-weight: 500;
   color: var(--text);
   min-width: 0;
+  text-decoration: none;
+}
+
+.enchant-name:hover {
+  text-decoration: underline;
 }
 
 .level-pills {

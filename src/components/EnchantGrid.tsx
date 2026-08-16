@@ -3,6 +3,7 @@ import type { EnchantSelection } from '../types/enchant';
 import type { LangStrings } from '../types/enchant';
 import type { EnchantData } from '../types/enchant';
 import { ENCHANTMENT_LIMIT } from '../constants';
+import { getWikiUrl } from '../lib/wiki';
 
 interface EnchantGridProps {
   item: string;
@@ -11,6 +12,7 @@ interface EnchantGridProps {
   allowIncompatible: boolean;
   allowMany: boolean;
   lang: LangStrings | null;
+  langId?: string;
   onToggle: (_ns: EnchantNamespace, _lvl: number) => void;
   onAllowIncompatibleChange?: (_checked: boolean) => void;
   onAllowManyChange?: (_checked: boolean) => void;
@@ -41,6 +43,7 @@ export function EnchantGrid({
   allowIncompatible,
   allowMany,
   lang,
+  langId = 'en',
   onToggle,
   onAllowIncompatibleChange,
   onAllowManyChange,
@@ -74,9 +77,17 @@ export function EnchantGrid({
           group.map((namespace) => {
             const def = enchantDefs[namespace];
             const name = lang?.enchants?.[namespace] ?? namespace;
+            const wikiUrl = getWikiUrl(name, langId);
             return (
               <div key={namespace} className="enchant-row">
-                <span className="enchant-name">{name}</span>
+                <a
+                  href={wikiUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="enchant-name"
+                >
+                  {name}
+                </a>
                 <div className="level-pills">
                   {Array.from({ length: def.levelMax }, (_, i) => i + 1).map((level) => {
                     const on = isSelected(namespace, level);
