@@ -92,7 +92,7 @@ enchant-order/
 ├── vite.config.ts
 ├── vitest.config.ts
 └── .github/workflows/
-    ├── ci.yml             # Lint, test, build
+    ├── ci.yml             # Lint, test, build, and deploy to GitHub Pages
     └── validate-lang-json.yml
 ```
 
