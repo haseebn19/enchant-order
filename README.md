@@ -16,7 +16,7 @@ Web tool to find the optimal order for combining enchantment books in Minecraft 
 
 ## Prerequisites
 
-- Node.js 20.x or higher
+- Node.js 20.19+ or 22.12+
 - npm
 
 ## Installation
