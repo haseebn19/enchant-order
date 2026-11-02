@@ -8,7 +8,8 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write # enable write permissions for pull request comments
+  # The action comments on pull requests with any errors it finds
+  pull-requests: write
 
 jobs:
   json-yaml-validate:
@@ -20,5 +21,5 @@ jobs:
         id: json-yaml-validate
         uses: GrantBirki/json-yaml-validate@v4.0.0
         with:
-          comment: "true" # enable comment mode
-          base_dir: "public/languages"
+          comment: 'true'
+          base_dir: 'public/languages'

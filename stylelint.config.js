@@ -11,6 +11,5 @@ export default {
     'media-feature-range-notation': null,
     'shorthand-property-no-redundant-values': null,
     'no-descending-specificity': null,
-    'value-no-vendor-prefix': null,
   },
 };

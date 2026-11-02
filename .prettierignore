@@ -1,0 +1,6 @@
+coverage
+dist
+package-lock.json
+*.md
+# Synced from upstream with sync:upstream, so kept in its format
+public/languages

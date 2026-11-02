@@ -6,13 +6,13 @@ end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-[*.py]
-indent_style = space
-indent_size = 4
-
-[*.{js,jsx,ts,tsx,json,yml,yaml,css,scss,html,mdx}]
+[*.{js,jsx,ts,tsx,mjs,json,yml,yaml,css,html}]
 indent_style = space
 indent_size = 2
 
 [*.md]
 trim_trailing_whitespace = false
+
+# Synced from upstream, which indents with 4 spaces
+[public/languages/*.json]
+indent_size = 4
