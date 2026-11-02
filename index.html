@@ -2,27 +2,25 @@
 <html lang="en">
   <head>
     <script>
-      (function () {
+      // Apply the saved theme before the page draws. Storage can be blocked, so this may fail.
+      try {
         var t = localStorage.getItem('enchant-order-theme');
         if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
-      })();
+      } catch (e) {}
     </script>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/gif" href="./images/book.gif" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Calculate the optimal enchantment order for your Minecraft items to minimize anvil costs." />
+    <meta
+      name="description"
+      content="Calculate the optimal enchantment order for your Minecraft items to minimize anvil costs."
+    />
     <meta name="theme-color" content="#1a1612" />
     <link rel="apple-touch-icon" href="./icon-192x192.png" />
     <title>Minecraft Enchantment Order</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <script type="module" crossorigin src="./assets/index-A_xtHb_n.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/vendor-react-EV4rRv3L.js">
-    <link rel="stylesheet" crossorigin href="./assets/index-DjnpBN4w.css">
+    <script type="module" crossorigin src="./assets/index-C5ChFDJN.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/vendor-react-Db-_YT-E.js">
+    <link rel="stylesheet" crossorigin href="./assets/index-B_eO31Uk.css">
   <link rel="manifest" href="./manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="./registerSW.js"></script></head>
   <body>
     <div id="root"></div>
