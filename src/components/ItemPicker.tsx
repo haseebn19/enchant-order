@@ -1,40 +1,28 @@
-import type { ItemNamespace } from '../types/enchant';
-import type { LangStrings } from '../types/enchant';
+import type { ItemNamespace, LangStrings } from '../types/enchant';
 import { ITEM_CATEGORIES } from '../data/itemCategories';
 import { ItemIcon } from './ItemIcon';
 
 interface ItemPickerProps {
   items: ItemNamespace[];
   value: ItemNamespace | '';
-  onChange: (_value: ItemNamespace | '') => void;
+  onChange: (value: ItemNamespace | '') => void;
   lang: LangStrings | null;
-  disabled?: boolean;
 }
 
-function getCategoryLabel(key: string, lang: ItemPickerProps['lang']): string {
-  if (!lang)
-    return key === 'armor'
-      ? 'Armor'
-      : key === 'weapons'
-        ? 'Weapons'
-        : key === 'tools'
-          ? 'Tools'
-          : 'Other';
+function getCategoryLabel(key: string, lang: LangStrings | null): string {
   switch (key) {
     case 'armor':
-      return lang.category_armor ?? 'Armor';
+      return lang?.category_armor ?? 'Armor';
     case 'weapons':
-      return lang.category_weapons ?? 'Weapons';
+      return lang?.category_weapons ?? 'Weapons';
     case 'tools':
-      return lang.category_tools ?? 'Tools';
-    case 'other':
-      return lang.category_other ?? 'Other';
+      return lang?.category_tools ?? 'Tools';
     default:
-      return 'Other';
+      return lang?.category_other ?? 'Other';
   }
 }
 
-export function ItemPicker({ items, value, onChange, lang, disabled }: ItemPickerProps) {
+export function ItemPicker({ items, value, onChange, lang }: ItemPickerProps) {
   const itemSet = new Set(items);
   const categories = ITEM_CATEGORIES.map((cat) => ({
     ...cat,
@@ -59,17 +47,10 @@ export function ItemPicker({ items, value, onChange, lang, disabled }: ItemPicke
                     key={ns}
                     type="button"
                     className={`item-chip ${isSelected ? 'selected' : ''}`}
+                    aria-pressed={isSelected}
                     onClick={() => onChange(isSelected ? '' : ns)}
-                    disabled={disabled}
-                    title={label}
                   >
-                    <ItemIcon
-                      key={ns}
-                      namespace={ns}
-                      label={label}
-                      size={20}
-                      className="item-chip-icon"
-                    />
+                    <ItemIcon namespace={ns} size={20} />
                     <span className="item-chip-label">{label}</span>
                   </button>
                 );

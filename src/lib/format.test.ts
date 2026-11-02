@@ -3,7 +3,7 @@ import { commaify, pluralize, formatTime, formatLevels, formatXp } from './forma
 import type { LangStrings } from '../types/enchant';
 
 describe('commaify', () => {
-  it('returns string as-is when length <= 3', () => {
+  it('leaves numbers under 1,000 as they are', () => {
     expect(commaify(0)).toBe('0');
     expect(commaify(1)).toBe('1');
     expect(commaify(999)).toBe('999');
@@ -35,6 +35,30 @@ describe('pluralize', () => {
   });
 });
 
+describe('pluralize with Russian plural forms', () => {
+  const lang = {
+    use_russian_plurals: true,
+    level: ' one',
+    level_low: ' few',
+    level_high: ' many',
+  } as unknown as LangStrings;
+
+  it.each([
+    [1, '1 one'],
+    [2, '2 few'],
+    [5, '5 many'],
+    [11, '11 many'],
+    [12, '12 many'],
+    [21, '21 one'],
+    [24, '24 few'],
+    [111, '111 many'],
+    [112, '112 many'],
+    [121, '121 one'],
+  ])('%i takes the right form', (num, expected) => {
+    expect(pluralize(num, 'level', lang)).toBe(expected);
+  });
+});
+
 describe('formatTime', () => {
   it('formats milliseconds', () => {
     expect(formatTime(500, null)).toBe('500 ms');
@@ -44,7 +68,7 @@ describe('formatTime', () => {
     expect(formatTime(1000, null)).toBe('1 s');
     expect(formatTime(5000, null)).toBe('5 s');
   });
-  it('uses lang microseconds when ms < 1', () => {
+  it('formats times under a millisecond in microseconds', () => {
     expect(formatTime(0.5, null)).toBe('500 microseconds');
   });
 });
@@ -57,10 +81,10 @@ describe('formatLevels', () => {
 });
 
 describe('formatXp', () => {
-  it('formats xp without range when minXp < 0', () => {
+  it('formats xp without a range when there is no minimum', () => {
     expect(formatXp(100, null)).toBe('100 xp');
   });
-  it('formats xp range when minXp >= 0', () => {
+  it('formats a range from the minimum xp', () => {
     expect(formatXp(100, null, 50)).toBe('50-100 xp');
   });
 });

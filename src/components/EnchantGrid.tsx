@@ -1,7 +1,9 @@
-import type { EnchantNamespace } from '../types/enchant';
-import type { EnchantSelection } from '../types/enchant';
-import type { LangStrings } from '../types/enchant';
-import type { EnchantData } from '../types/enchant';
+import type {
+  EnchantData,
+  EnchantNamespace,
+  EnchantSelection,
+  LangStrings,
+} from '../types/enchant';
 import { ENCHANTMENT_LIMIT } from '../constants';
 import { getWikiUrl } from '../lib/wiki';
 
@@ -12,28 +14,24 @@ interface EnchantGridProps {
   allowIncompatible: boolean;
   allowMany: boolean;
   lang: LangStrings | null;
-  langId?: string;
-  onToggle: (_ns: EnchantNamespace, _lvl: number) => void;
-  onAllowIncompatibleChange?: (_checked: boolean) => void;
-  onAllowManyChange?: (_checked: boolean) => void;
+  langId: string;
+  onToggle: (namespace: EnchantNamespace, level: number) => void;
+  onAllowIncompatibleChange: (checked: boolean) => void;
+  onAllowManyChange: (checked: boolean) => void;
 }
 
+/** The enchantment and every enchantment linked to it by incompatibility, sorted by ID. */
 function getIncompatibleGroup(
   namespace: EnchantNamespace,
   enchants: EnchantData['enchants']
 ): EnchantNamespace[] {
-  const queue = [namespace];
-  const result: EnchantNamespace[] = [];
-  while (queue.length > 0) {
-    const n = queue.shift()!;
-    if (result.includes(n)) continue;
-    result.push(n);
-    const def = enchants[n];
-    if (def)
-      for (const inc of def.incompatible)
-        if (!result.includes(inc) && !queue.includes(inc)) queue.push(inc);
+  const group = [namespace];
+  for (let i = 0; i < group.length; i++) {
+    for (const other of enchants[group[i]].incompatible) {
+      if (!group.includes(other)) group.push(other);
+    }
   }
-  return result.sort();
+  return group.sort();
 }
 
 export function EnchantGrid({
@@ -43,17 +41,15 @@ export function EnchantGrid({
   allowIncompatible,
   allowMany,
   lang,
-  langId = 'en',
+  langId,
   onToggle,
   onAllowIncompatibleChange,
   onAllowManyChange,
 }: EnchantGridProps) {
   const { enchants: enchantDefs } = data;
-  const itemEnchants = data.items.includes(item)
-    ? Object.entries(enchantDefs).filter(([, def]) =>
-        item === 'book' ? true : def.items.includes(item)
-      )
-    : [];
+  const itemEnchants = Object.entries(enchantDefs).filter(
+    ([, def]) => item === 'book' || def.items.includes(item)
+  );
 
   const groups: EnchantNamespace[][] = [];
   const seen = new Set<EnchantNamespace>();
@@ -97,9 +93,10 @@ export function EnchantGrid({
                         key={level}
                         type="button"
                         className={`level-pill ${on ? 'selected' : ''}`}
+                        aria-pressed={on}
+                        aria-label={`${name} ${level}`}
                         onClick={() => onToggle(namespace, level)}
                         disabled={disabled}
-                        title={`${name} ${level}`}
                       >
                         {level}
                       </button>
@@ -116,7 +113,7 @@ export function EnchantGrid({
           <input
             type="checkbox"
             checked={allowIncompatible}
-            onChange={(e) => onAllowIncompatibleChange?.(e.target.checked)}
+            onChange={(e) => onAllowIncompatibleChange(e.target.checked)}
           />
           <span>{lang?.checkbox_label_incompatible ?? 'Allow incompatible enchantments'}</span>
         </label>
@@ -124,7 +121,7 @@ export function EnchantGrid({
           <input
             type="checkbox"
             checked={allowMany}
-            onChange={(e) => onAllowManyChange?.(e.target.checked)}
+            onChange={(e) => onAllowManyChange(e.target.checked)}
           />
           <span>{lang?.checkbox_label_max_number ?? 'Allow more than 10 enchantments'}</span>
         </label>

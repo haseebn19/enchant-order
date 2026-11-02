@@ -1,7 +1,6 @@
-import type {ItemNamespace} from '../types/enchant';
-import type {EnchantSelection} from '../types/enchant';
+import type { EnchantSelection, ItemNamespace } from '../types/enchant';
 
-export interface Loadout {
+interface Loadout {
   id: string;
   name: string;
   enchants: EnchantSelection[];

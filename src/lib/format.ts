@@ -1,37 +1,29 @@
 import type { LangStrings } from '../types/enchant';
 
-const fallbacks = {
+type Unit = 'millisecond' | 'second' | 'level';
+
+const fallbacks: Record<Unit | `${Unit}_s`, string> = {
   millisecond: ' ms',
   millisecond_s: ' ms',
   second: ' s',
   second_s: ' s',
   level: ' level',
   level_s: ' levels',
-  xp: ' xp',
 };
 
-export function pluralize(
-  num: number,
-  keyRoot: 'millisecond' | 'second' | 'level',
-  lang: LangStrings | null
-): string {
-  if (!lang)
-    return (
-      num + (num === 1 ? fallbacks[keyRoot] : fallbacks[(keyRoot + '_s') as keyof typeof fallbacks])
-    );
-  const L = lang as unknown as Record<string, string>;
-  if (
-    L.use_russian_plurals &&
-    (keyRoot === 'level' || keyRoot === 'second' || keyRoot === 'millisecond')
-  ) {
-    const key = keyRoot === 'level' ? 'level' : keyRoot;
-    if (num % 10 === 1 && (num < 10 || num > 15)) return String(num) + L[key];
-    if ((num % 10 === 2 || num % 10 === 3 || num % 10 === 4) && (num < 10 || num > 15))
-      return String(num) + L[key + '_low'];
-    return String(num) + L[key + '_high'];
+/** The number followed by the unit, in the form the language uses for that number. */
+export function pluralize(num: number, unit: Unit, lang: LangStrings | null): string {
+  if (lang?.use_russian_plurals) {
+    // One form for 1, 21, 31, ...; another for 2 to 4, 22 to 24, ...; and a third for the
+    // rest, which includes 11 to 14 in every hundred
+    const lastDigit = num % 10;
+    const lastTwoDigits = num % 100;
+    if (lastDigit === 1 && lastTwoDigits !== 11) return `${num}${lang[unit]}`;
+    const isFew = lastDigit >= 2 && lastDigit <= 4 && (lastTwoDigits < 12 || lastTwoDigits > 14);
+    return `${num}${isFew ? lang[`${unit}_low` as const] : lang[`${unit}_high` as const]}`;
   }
-  if (num === 1) return String(num) + (L[keyRoot] ?? fallbacks[keyRoot]);
-  return String(num) + (L[keyRoot + '_s'] ?? fallbacks[(keyRoot + '_s') as keyof typeof fallbacks]);
+  const key = num === 1 ? unit : (`${unit}_s` as const);
+  return `${num}${lang?.[key] ?? fallbacks[key]}`;
 }
 
 export function formatTime(ms: number, lang: LangStrings | null): string {
@@ -44,21 +36,12 @@ export function formatLevels(levels: number, lang: LangStrings | null): string {
   return pluralize(levels, 'level', lang);
 }
 
-export function formatXp(xp: number, lang: LangStrings | null, minXp = -1): string {
-  let s = '';
-  if (minXp >= 0) s += commaify(minXp) + '-';
-  s += commaify(xp) + (lang?.xp ?? ' xp');
-  return s;
+/** The XP as text, or a range from `minXp` when the cost depends on how levels are earned. */
+export function formatXp(xp: number, lang: LangStrings | null, minXp?: number): string {
+  const range = minXp === undefined ? '' : commaify(minXp) + '-';
+  return range + commaify(xp) + (lang?.xp ?? ' xp');
 }
 
 export function commaify(n: number): string {
-  const str = String(n);
-  if (str.length <= 3) return str;
-  let out = '';
-  let rest = str;
-  while (rest.length > 3) {
-    out = ',' + rest.slice(-3) + out;
-    rest = rest.slice(0, -3);
-  }
-  return rest + out;
+  return n.toLocaleString('en-US');
 }

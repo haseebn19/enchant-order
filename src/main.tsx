@@ -1,7 +1,7 @@
 /*
  * enchant-order - Minecraft enchantment optimization tool
  * Copyright (C) 2021 Cal Henderson
- * Copyright (C) 2025 haseebn19
+ * Copyright (C) 2025 Haseeb Niazi
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by

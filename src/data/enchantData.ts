@@ -1,11 +1,11 @@
-import type { EnchantData } from '../types/enchant';
+import type { EnchantData, EnchantDef } from '../types/enchant';
 
 function def(
   levelMax: number,
   weight: number,
   incompatible: string[],
   items: string[]
-): { levelMax: number; weight: number; incompatible: string[]; items: string[] } {
+): EnchantDef {
   return { levelMax, weight, incompatible, items };
 }
 

@@ -1,19 +1,28 @@
-import {useState, useEffect, useCallback} from 'react';
-import type {LangStrings} from '../types/enchant';
-import {LANGUAGES} from '../constants';
+import { useState, useEffect, useCallback } from 'react';
+import type { LangStrings } from '../types/enchant';
+import { LANGUAGES } from '../constants';
+import { readSetting, saveSetting } from '../lib/storage';
 
 const LANG_STORAGE_KEY = 'enchant-order-lang';
 
-function mergeKeys(target: Record<string, unknown>, fallback: Record<string, unknown>): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const key in fallback) {
-    if (typeof fallback[key] === 'object' && fallback[key] !== null && !Array.isArray(fallback[key])) {
-      result[key] = mergeKeys(
-        (Object.prototype.hasOwnProperty.call(target, key) ? target[key] : {}) as Record<string, unknown>,
-        fallback[key] as Record<string, unknown>,
-      );
-    } else {
-      result[key] = Object.prototype.hasOwnProperty.call(target, key) ? target[key] : fallback[key];
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * A language's strings with English filling in any it is missing. Keys only the language has,
+ * such as the Russian plural forms, are kept.
+ */
+export function mergeKeys(
+  strings: Record<string, unknown>,
+  fallback: Record<string, unknown>
+): Record<string, unknown> {
+  const result: Record<string, unknown> = { ...strings };
+  for (const [key, value] of Object.entries(fallback)) {
+    if (isRecord(value)) {
+      result[key] = mergeKeys(isRecord(strings[key]) ? strings[key] : {}, value);
+    } else if (!Object.prototype.hasOwnProperty.call(strings, key)) {
+      result[key] = value;
     }
   }
   return result;
@@ -21,7 +30,7 @@ function mergeKeys(target: Record<string, unknown>, fallback: Record<string, unk
 
 export function useLanguage() {
   const [langId, setLangIdState] = useState<string>(() => {
-    const stored = localStorage.getItem(LANG_STORAGE_KEY);
+    const stored = readSetting(LANG_STORAGE_KEY);
     return stored && LANGUAGES[stored] ? stored : 'en';
   });
   const [strings, setStrings] = useState<LangStrings | null>(null);
@@ -30,11 +39,13 @@ export function useLanguage() {
   const setLangId = useCallback((id: string) => {
     if (!LANGUAGES[id]) return;
     setLangIdState(id);
-    localStorage.setItem(LANG_STORAGE_KEY, id);
+    saveSetting(LANG_STORAGE_KEY, id);
   }, []);
 
   useEffect(() => {
     const base = import.meta.env.BASE_URL;
+    // A language picked while another is still loading replaces it, so ignore the older one
+    let current = true;
 
     const loadJson = (lang: string) =>
       fetch(`${base}languages/${lang}.json`).then((r) => {
@@ -42,22 +53,27 @@ export function useLanguage() {
         return r.json();
       });
 
-    if (langId === 'en') {
-      loadJson('en')
-        .then((data) => {
-          setError(null);
-          setStrings(data);
-        })
-        .catch((e) => setError(e.message));
-    } else {
-      Promise.all([loadJson(langId), loadJson('en')])
-        .then(([langData, enData]) => {
-          setError(null);
-          setStrings(mergeKeys(langData, enData) as unknown as LangStrings);
-        })
-        .catch((e) => setError(e.message));
-    }
+    const loaded =
+      langId === 'en'
+        ? loadJson('en')
+        : Promise.all([loadJson(langId), loadJson('en')]).then(([langData, enData]) =>
+            mergeKeys(langData, enData)
+          );
+
+    loaded
+      .then((data) => {
+        if (!current) return;
+        setError(null);
+        setStrings(data as LangStrings);
+      })
+      .catch((e: Error) => {
+        if (current) setError(e.message);
+      });
+
+    return () => {
+      current = false;
+    };
   }, [langId]);
 
-  return {langId, setLangId, strings, error, languages: LANGUAGES};
+  return { langId, setLangId, strings, error, languages: LANGUAGES };
 }

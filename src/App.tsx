@@ -1,7 +1,7 @@
 /*
  * enchant-order - Minecraft enchantment optimization tool
  * Copyright (C) 2021 Cal Henderson
- * Copyright (C) 2025 haseebn19
+ * Copyright (C) 2025 Haseeb Niazi
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -14,12 +14,11 @@
  * GNU Affero General Public License for more details.
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useLanguage } from './hooks/useLanguage';
-import { useMatchMedia } from './hooks/useMatchMedia';
-import { useTheme } from './hooks/useTheme';
+import { useTheme, type ThemePreference } from './hooks/useTheme';
 import { enchantData } from './data/enchantData';
-import { createCalculator } from './lib/anvilCalculator';
+import { createCalculator, noSolution } from './lib/anvilCalculator';
 import { ItemPicker } from './components/ItemPicker';
 import { LoadoutPicker } from './components/LoadoutPicker';
 import { EnchantGrid } from './components/EnchantGrid';
@@ -34,6 +33,8 @@ import type {
 } from './types/enchant';
 import './App.css';
 
+const calculator = createCalculator(enchantData.enchants);
+
 export default function App() {
   const { langId, setLangId, strings: lang, error: langError, languages } = useLanguage();
   const [item, setItem] = useState<ItemNamespace | ''>('');
@@ -46,10 +47,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [timeMs, setTimeMs] = useState<number | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
-  const isWideViewport = useMatchMedia('(min-width: 800px)');
   const [theme, setTheme] = useTheme();
-
-  const calculator = useMemo(() => createCalculator(enchantData.enchants), []);
 
   const handleItemChange = useCallback((newItem: ItemNamespace | '') => {
     setItem(newItem);
@@ -87,25 +85,23 @@ export default function App() {
     setResult(null);
     setTimeMs(null);
     const start = performance.now();
-    requestAnimationFrame(() => {
-      try {
-        const solution = calculator.process(item, selected, mode);
+    // Wait for the next paint, so the calculating message shows before the work blocks the page
+    requestAnimationFrame(() =>
+      setTimeout(() => {
+        let solution: SolutionResult;
+        try {
+          solution = calculator.process(item, selected, mode);
+        } catch (error) {
+          console.error('Calculation failed', error);
+          solution = noSolution(selected);
+        }
         setResult(solution);
         setResultMode(mode);
         setTimeMs(performance.now() - start);
-      } catch {
-        setResult({
-          item_obj: { x: 0 },
-          instructions: [],
-          extra: [0, 0],
-          enchants: selected,
-        });
-        setResultMode(mode);
-        setTimeMs(performance.now() - start);
-      }
-      setLoading(false);
-    });
-  }, [item, selected, mode, calculator]);
+        setLoading(false);
+      })
+    );
+  }, [item, selected, mode]);
 
   return (
     <div className="app">
@@ -116,12 +112,12 @@ export default function App() {
             <select
               aria-label="Theme"
               value={theme}
-              onChange={(e) => setTheme(e.target.value as 'system' | 'light' | 'dark')}
+              onChange={(e) => setTheme(e.target.value as ThemePreference)}
               className="lang-pill"
             >
               <option value="system">{lang?.theme_system ?? 'System'}</option>
-              <option value="light">{lang?.light_mode ?? 'Light'}</option>
-              <option value="dark">{lang?.dark_mode ?? 'Dark'}</option>
+              <option value="light">{lang?.light_mode ?? 'Light Mode'}</option>
+              <option value="dark">{lang?.dark_mode ?? 'Dark Mode'}</option>
             </select>
             <select
               aria-label="Language"
@@ -162,7 +158,7 @@ export default function App() {
           )}
         </section>
 
-        <div className={`main-columns ${isWideViewport ? 'layout-wide' : ''}`}>
+        <div className="main-columns">
           <section className="workspace card">
             <h2 className="workspace-title">{lang?.workspace_title ?? 'Build your setup'}</h2>
 
@@ -205,16 +201,18 @@ export default function App() {
                     <button
                       type="button"
                       className={`mode-option ${mode === 'levels' ? 'active' : ''}`}
+                      aria-pressed={mode === 'levels'}
                       onClick={() => setMode('levels')}
                     >
-                      {lang?.radio_label_optimize_xp ?? 'Least XP / levels'}
+                      {lang?.radio_label_optimize_xp ?? 'Least XP/Levels'}
                     </button>
                     <button
                       type="button"
                       className={`mode-option ${mode === 'prior_work' ? 'active' : ''}`}
+                      aria-pressed={mode === 'prior_work'}
                       onClick={() => setMode('prior_work')}
                     >
-                      {lang?.radio_label_optimize_pwp ?? 'Least prior work'}
+                      {lang?.radio_label_optimize_pwp ?? 'Least Prior Work Penalty'}
                     </button>
                   </div>
                 </div>
@@ -227,12 +225,12 @@ export default function App() {
                     disabled={selected.length === 0 || loading}
                   >
                     {loading
-                      ? (lang?.calculating_solution ?? 'Calculating…')
-                      : (lang?.calculate ?? 'Find optimal order')}
+                      ? (lang?.calculating_solution ?? 'Calculating solution...')
+                      : (lang?.calculate ?? 'Calculate')}
                   </button>
                   {selected.length > 0 && (
                     <span className="cta-hint">
-                      {(lang?.hint_enchantments_selected ?? '{count} enchantment(s) selected').replace(
+                      {(lang?.hint_enchantments_selected ?? '{count} selected').replace(
                         '{count}',
                         String(selected.length)
                       )}
@@ -246,18 +244,14 @@ export default function App() {
           <aside className="result-column">
             {loading && (
               <div className="result-placeholder">
-                <p className="progress">{lang?.calculating_solution ?? 'Calculating…'}</p>
+                <p className="progress">
+                  {lang?.calculating_solution ?? 'Calculating solution...'}
+                </p>
               </div>
             )}
             {result && !loading && (
-              <section className="result-section card result-card">
-                <SolutionPanel
-                  result={result}
-                  timeMs={timeMs}
-                  mode={resultMode}
-                  lang={lang}
-                  enchantsList={result.enchants}
-                />
+              <section className="result-section card">
+                <SolutionPanel result={result} timeMs={timeMs} mode={resultMode} lang={lang} />
               </section>
             )}
           </aside>

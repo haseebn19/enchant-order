@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
+import { readSetting, saveSetting } from '../lib/storage';
 
 const STORAGE_KEY = 'enchant-order-theme';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 
 function getStoredTheme(): ThemePreference {
-  if (typeof window === 'undefined') return 'system';
-  const stored = window.localStorage.getItem(STORAGE_KEY);
+  const stored = readSetting(STORAGE_KEY);
   if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
   return 'system';
 }
@@ -20,7 +20,7 @@ function applyTheme(preference: ThemePreference) {
   }
 }
 
-export function useTheme(): [ThemePreference, (_next: ThemePreference) => void] {
+export function useTheme(): [ThemePreference, (next: ThemePreference) => void] {
   const [theme, setThemeState] = useState<ThemePreference>(getStoredTheme);
 
   useEffect(() => {
@@ -29,7 +29,7 @@ export function useTheme(): [ThemePreference, (_next: ThemePreference) => void] 
 
   const setTheme = useCallback((next: ThemePreference) => {
     setThemeState(next);
-    window.localStorage.setItem(STORAGE_KEY, next);
+    saveSetting(STORAGE_KEY, next);
   }, []);
 
   return [theme, setTheme];

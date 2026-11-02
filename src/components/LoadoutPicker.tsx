@@ -1,11 +1,9 @@
-import type { ItemNamespace } from '../types/enchant';
-import type { EnchantSelection } from '../types/enchant';
-import type { LangStrings } from '../types/enchant';
+import type { EnchantSelection, ItemNamespace, LangStrings } from '../types/enchant';
 import { loadoutsByItem } from '../data/loadouts';
 
 interface LoadoutPickerProps {
   item: ItemNamespace;
-  onApply: (_loadoutEnchants: EnchantSelection[]) => void;
+  onApply: (enchants: EnchantSelection[]) => void;
   lang: LangStrings | null;
 }
 
@@ -24,7 +22,7 @@ export function LoadoutPicker({ item, onApply, lang }: LoadoutPickerProps) {
             className="loadout-btn"
             onClick={() => onApply(loadout.enchants)}
           >
-            {lang?.loadouts?.[loadout.id] ?? loadout.name}
+            {loadout.name}
           </button>
         ))}
       </div>

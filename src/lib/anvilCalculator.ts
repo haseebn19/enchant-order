@@ -1,3 +1,11 @@
+/**
+ * Finds the cheapest order to combine enchanted books onto an item in an anvil.
+ *
+ * The approach comes from iamcal/enchant-order: every way of splitting the books into two
+ * groups is tried recursively, and for each group the cheapest result is kept for every prior
+ * work count, since a cheaper merge now can mean a larger penalty later. The search grows
+ * exponentially with the number of books, which is fine for the handful an item can hold.
+ */
 import type {
   CheapnessMode,
   EnchantSelection,
@@ -6,15 +14,17 @@ import type {
   SolutionStep,
 } from '../types/enchant';
 
+// Survival anvils refuse merges above 39 levels ("Too Expensive!")
 const MAXIMUM_MERGE_LEVELS = 39;
 
-class MergeLevelsTooExpensiveError extends Error {
-  constructor(message = 'merge levels is above maximum allowed') {
-    super(message);
-    this.name = 'MergeLevelsTooExpensiveError';
+class MergeTooExpensiveError extends Error {
+  constructor() {
+    super('Merge costs more levels than an anvil allows');
+    this.name = 'MergeTooExpensiveError';
   }
 }
 
+/** Experience points needed to reach a level from level 0. */
 function experience(level: number): number {
   if (level === 0) return 0;
   if (level <= 16) return level ** 2 + 6 * level;
@@ -22,351 +32,299 @@ function experience(level: number): number {
   return 4.5 * level ** 2 - 162.5 * level + 2220;
 }
 
-type ItemName = 'book' | 'item' | number;
-
-interface InternalItem {
-  i: ItemName;
-  e: number[];
-  c: Record<string, unknown>;
-  w: number;
-  l: number;
-  x: number;
+/** Levels an anvil adds for an item that has been through `priorWork` merges. */
+function priorWorkPenalty(priorWork: number): number {
+  return 2 ** priorWork - 1;
 }
 
+/**
+ * What a partial result is built on: a book, the item, or when enchanting a book, the
+ * enchantment ID of the book chosen as the base.
+ */
+type ItemKind = 'book' | 'item' | number;
+
+/** A book or item partway through the process, with how it was made. */
+interface AnvilItem {
+  kind: ItemKind;
+  enchantIds: number[];
+  /** How it was made, as the tree the steps are read from */
+  tree: ItemNode;
+  /** Number of anvil merges that went into it */
+  priorWork: number;
+  /** Sum of level times weight of its enchantments, the base cost of using it as a sacrifice */
+  value: number;
+  /** Experience spent on its merges, each counted from level 0 */
+  xp: number;
+}
+
+/** The cheapest item found for each prior work count. */
+type ByPriorWork = Record<number, AnvilItem>;
+
+/** Every k-element subset of the set, keeping the set's order. */
 function combinations<T>(set: T[], k: number): T[][] {
   if (k > set.length || k <= 0) return [];
   if (k === set.length) return [set.slice()];
   if (k === 1) return set.map((x) => [x]);
 
-  const combs: T[][] = [];
+  const result: T[][] = [];
   for (let i = 0; i < set.length - k + 1; i++) {
-    const head = set.slice(i, i + 1);
-    const tailcombs = combinations(set.slice(i + 1), k - 1);
-    for (let j = 0; j < tailcombs.length; j++) {
-      combs.push(head.concat(tailcombs[j]));
+    for (const tail of combinations(set.slice(i + 1), k - 1)) {
+      result.push([set[i], ...tail]);
     }
   }
-  return combs;
+  return result;
 }
 
-function hashFromItem(item: InternalItem): [ItemName, number[], number] {
-  const enchants = item.e.slice().sort((a, b) => a - b);
-  const itemNamespace = item.i;
-  const work = item.w;
-  return [itemNamespace, enchants, work];
+/** A key that is the same for groups of items that would give the same results. */
+function groupKey(items: AnvilItem[]): string {
+  return JSON.stringify(
+    items.map((item) => [item.kind, [...item.enchantIds].sort((a, b) => a - b), item.priorWork])
+  );
 }
 
-function memoKey(items: InternalItem[]): string {
-  return JSON.stringify(items.map(hashFromItem));
+/** The result shown when no order keeps every merge within the anvil's limit. */
+export function noSolution(enchants: EnchantSelection[]): SolutionResult {
+  return { steps: [], totalLevels: 0, totalXp: 0, minimumXp: 0, enchants };
 }
 
 export function createCalculator(enchants: Record<string, { weight: number }>) {
-  const ID_LIST: Record<string, number> = {};
-  const ENCHANTMENT2WEIGHT: number[] = [];
-  let id = 0;
-  for (const enchant in enchants) {
-    const weight = enchants[enchant].weight;
-    ID_LIST[enchant] = id;
-    ENCHANTMENT2WEIGHT[id] = weight;
-    id++;
+  const namespaces = Object.keys(enchants);
+  const enchantIds: Record<string, number> = Object.fromEntries(
+    namespaces.map((namespace, id) => [namespace, id])
+  );
+  const weights = namespaces.map((namespace) => enchants[namespace].weight);
+
+  // Results for each group of items, cleared for every new calculation
+  let memo: Record<string, ByPriorWork> = {};
+
+  function newItem(kind: ItemKind, value = 0, ids: number[] = []): AnvilItem {
+    return { kind, enchantIds: ids, tree: {}, priorWork: 0, value, xp: 0 };
   }
 
-  const results: Record<string, Record<number, InternalItem>> = {};
+  /** Put the sacrifice onto the target. Throws if the anvil would refuse it. */
+  function merge(target: AnvilItem, sacrifice: AnvilItem): AnvilItem {
+    const levels =
+      sacrifice.value + priorWorkPenalty(target.priorWork) + priorWorkPenalty(sacrifice.priorWork);
+    if (levels > MAXIMUM_MERGE_LEVELS) throw new MergeTooExpensiveError();
 
-  function ItemObj(name: ItemName, value = 0, enchantIds: number[] = []): InternalItem {
-    return {
-      i: name,
-      e: enchantIds,
-      c: {},
-      w: 0,
-      l: value,
-      x: 0,
+    const merged = newItem(target.kind, target.value + sacrifice.value);
+    merged.enchantIds = [...target.enchantIds, ...sacrifice.enchantIds];
+    merged.priorWork = Math.max(target.priorWork, sacrifice.priorWork) + 1;
+    merged.xp = target.xp + sacrifice.xp + experience(levels);
+    merged.tree = {
+      L: target.tree,
+      R: sacrifice.tree,
+      l: levels,
+      w: merged.priorWork,
+      v: merged.value,
     };
-  }
-
-  function MergeEnchants(left: InternalItem, right: InternalItem): InternalItem {
-    const mergeCost = right.l + 2 ** left.w - 1 + 2 ** right.w - 1;
-    if (mergeCost > MAXIMUM_MERGE_LEVELS) throw new MergeLevelsTooExpensiveError();
-    const newValue = left.l + right.l;
-    const merged = ItemObj(left.i, newValue);
-    merged.e = left.e.concat(right.e);
-    merged.w = Math.max(left.w, right.w) + 1;
-    merged.x = left.x + right.x + experience(mergeCost);
-    merged.c = { L: left.c, R: right.c, l: mergeCost, w: merged.w, v: merged.l };
     return merged;
   }
 
-  function cheapestItemFromItems2(left: InternalItem, right: InternalItem): InternalItem {
-    if (right.i === 'item') return MergeEnchants(right, left);
-    if (left.i === 'item') return MergeEnchants(left, right);
-
-    let normal: InternalItem;
+  function tryMerge(target: AnvilItem, sacrifice: AnvilItem): AnvilItem | null {
     try {
-      normal = MergeEnchants(left, right);
-    } catch {
-      return MergeEnchants(right, left);
+      return merge(target, sacrifice);
+    } catch (error) {
+      if (error instanceof MergeTooExpensiveError) return null;
+      throw error;
     }
-
-    let reversed: InternalItem;
-    try {
-      reversed = MergeEnchants(right, left);
-    } catch {
-      return normal;
-    }
-
-    const compared = compareCheapest(normal, reversed);
-    const works = Object.keys(compared).map(Number);
-    return compared[works[0]];
   }
 
-  function compareCheapest(item1: InternalItem, item2: InternalItem): Record<number, InternalItem> {
-    const work2item: Record<number, InternalItem> = {};
-    const work1 = item1.w;
-    const work2 = item2.w;
-
-    if (work1 === work2) {
-      const value1 = item1.l;
-      const value2 = item2.l;
-      if (value1 === value2) {
-        if (item1.x <= item2.x) work2item[work1] = item1;
-        else work2item[work2] = item2;
-      } else if (value1 < value2) {
-        work2item[work1] = item1;
-      } else {
-        work2item[work2] = item2;
-      }
-    } else {
-      work2item[work1] = item1;
-      work2item[work2] = item2;
-    }
-    return work2item;
+  /** The cheaper of two items with the same prior work: lower value, then less experience. */
+  function cheaper(a: AnvilItem, b: AnvilItem): AnvilItem {
+    if (a.value !== b.value) return a.value < b.value ? a : b;
+    return a.xp <= b.xp ? a : b;
   }
 
-  function removeExpensiveCandidatesFromDictionary(
-    work2item: Record<number, InternalItem>
-  ): Record<number, InternalItem> {
-    const out: Record<number, InternalItem> = {};
-    let cheapestValue: number | undefined;
-    for (const work in work2item) {
-      const item = work2item[work];
-      const value = item.l;
-      if (cheapestValue === undefined || value < cheapestValue) {
-        out[work] = item;
-        cheapestValue = value;
+  /** Add the item to the map unless an item with the same prior work is already cheaper. */
+  function keepCheapest(byWork: ByPriorWork, item: AnvilItem): void {
+    const existing = byWork[item.priorWork];
+    byWork[item.priorWork] = existing ? cheaper(existing, item) : item;
+  }
+
+  /** Drop items that have more prior work than another item without being cheaper. */
+  function withoutDominated(byWork: ByPriorWork): ByPriorWork {
+    const kept: ByPriorWork = {};
+    let lowestValue = Infinity;
+    // Numeric keys iterate in ascending order, so this goes from least to most prior work
+    for (const item of Object.values(byWork)) {
+      if (item.value < lowestValue) {
+        kept[item.priorWork] = item;
+        lowestValue = item.value;
       }
     }
-    return out;
+    return kept;
   }
 
-  function cheapestItemsFromList(items: InternalItem[]): Record<number, InternalItem> {
-    const key = memoKey(items);
-    if (results[key]) return results[key];
+  /** Merge two items in whichever order is cheaper. The item itself is always the target. */
+  function cheapestMergeOfTwo(a: AnvilItem, b: AnvilItem): AnvilItem {
+    if (b.kind === 'item') return merge(b, a);
+    if (a.kind === 'item') return merge(a, b);
 
-    const itemCount = items.length;
-    let work2item: Record<number, InternalItem>;
+    const forward = tryMerge(a, b);
+    if (!forward) return merge(b, a);
+    const reverse = tryMerge(b, a);
+    return reverse ? cheaper(forward, reverse) : forward;
+  }
 
-    if (itemCount === 1) {
-      const item = items[0];
-      work2item = { [item.w]: item };
-    } else if (itemCount === 2) {
-      const cheapest = cheapestItemFromItems2(items[0], items[1]);
-      work2item = { [cheapest.w]: cheapest };
+  /** The cheapest ways to combine every item in the group into one, by prior work. */
+  function cheapestByPriorWork(items: AnvilItem[]): ByPriorWork {
+    const key = groupKey(items);
+    if (memo[key]) return memo[key];
+
+    let byWork: ByPriorWork;
+    if (items.length === 1) {
+      byWork = { [items[0].priorWork]: items[0] };
+    } else if (items.length === 2) {
+      const merged = cheapestMergeOfTwo(items[0], items[1]);
+      byWork = { [merged.priorWork]: merged };
     } else {
-      work2item = cheapestItemsFromListN(items, Math.floor(itemCount / 2));
+      byWork = cheapestFromSplits(items);
     }
 
-    results[key] = work2item;
-    return work2item;
+    memo[key] = byWork;
+    return byWork;
   }
 
-  function cheapestItemsFromListN(
-    items: InternalItem[],
-    maxSubcount: number
-  ): Record<number, InternalItem> {
-    const cheapestWork2item: Record<number, InternalItem> = {};
-    const cheapestPriorWorks: number[] = [];
-
-    for (let subcount = 1; subcount <= maxSubcount; subcount++) {
-      combinations(items, subcount).forEach((leftItems) => {
-        const rightItems = items.filter((obj) => !leftItems.includes(obj));
-        const leftWork2item = cheapestItemsFromList(leftItems);
-        const rightWork2item = cheapestItemsFromList(rightItems);
-        const newWork2item = cheapestItemsFromDictionaries2(leftWork2item, rightWork2item);
-
-        for (const workStr in newWork2item) {
-          const work = Number(workStr);
-          const newItem = newWork2item[work];
-          if (cheapestPriorWorks.includes(work)) {
-            const existing = cheapestWork2item[work];
-            const compared = compareCheapest(existing, newItem);
-            cheapestWork2item[work] = compared[work];
-          } else {
-            cheapestWork2item[work] = newItem;
-            cheapestPriorWorks.push(work);
-          }
-        }
-      });
+  /** Try every split of the group into two smaller groups, combining each side first. */
+  function cheapestFromSplits(items: AnvilItem[]): ByPriorWork {
+    const byWork: ByPriorWork = {};
+    for (let size = 1; size <= Math.floor(items.length / 2); size++) {
+      for (const left of combinations(items, size)) {
+        const right = items.filter((item) => !left.includes(item));
+        const merged = cheapestMergeOfGroups(cheapestByPriorWork(left), cheapestByPriorWork(right));
+        for (const item of Object.values(merged)) keepCheapest(byWork, item);
+      }
     }
-    return cheapestWork2item;
+    return byWork;
   }
 
-  function cheapestItemsFromDictionaries2(
-    left: Record<number, InternalItem>,
-    right: Record<number, InternalItem>
-  ): Record<number, InternalItem> {
-    const cheapestWork2item: Record<number, InternalItem> = {};
-    const cheapestPriorWorks: number[] = [];
-
-    for (const lw in left) {
-      const leftItem = left[lw];
-      for (const rw in right) {
-        const rightItem = right[rw];
-        let newWork2item: Record<number, InternalItem>;
+  /** Merge each candidate from one group with each from the other, keeping the best. */
+  function cheapestMergeOfGroups(left: ByPriorWork, right: ByPriorWork): ByPriorWork {
+    const byWork: ByPriorWork = {};
+    for (const leftItem of Object.values(left)) {
+      for (const rightItem of Object.values(right)) {
+        let merged: ByPriorWork;
         try {
-          newWork2item = cheapestItemsFromList([leftItem, rightItem]);
-        } catch (err) {
-          if (err instanceof MergeLevelsTooExpensiveError) continue;
-          throw err;
+          merged = cheapestByPriorWork([leftItem, rightItem]);
+        } catch (error) {
+          if (error instanceof MergeTooExpensiveError) continue;
+          throw error;
         }
-        for (const workStr in newWork2item) {
-          const work = Number(workStr);
-          const newItem = newWork2item[work];
-          if (cheapestPriorWorks.includes(work)) {
-            const existing = cheapestWork2item[work];
-            const compared = compareCheapest(existing, newItem);
-            cheapestWork2item[work] = compared[work];
-          } else {
-            cheapestWork2item[work] = newItem;
-            cheapestPriorWorks.push(work);
-          }
-        }
+        for (const item of Object.values(merged)) keepCheapest(byWork, item);
       }
     }
-    return removeExpensiveCandidatesFromDictionary(cheapestWork2item);
+    return withoutDominated(byWork);
   }
 
-  function sumLevelsFromComb(comb: Record<string, unknown>): number {
-    const c = comb as { L?: Record<string, unknown>; R?: Record<string, unknown>; l?: number };
-    let sum = c.l ?? 0;
-    if (c.L && typeof (c.L as { l?: number }).l === 'number') sum += sumLevelsFromComb(c.L);
-    if (c.R && typeof (c.R as { l?: number }).l === 'number') sum += sumLevelsFromComb(c.R);
+  /**
+   * The sum of `l` across the tree: every merge's level cost, plus every book's value. The
+   * book values add the same amount to every order, so they do not change which is cheapest.
+   */
+  function levelsInTree(node: ItemNode): number {
+    let sum = node.l ?? 0;
+    if (typeof node.L?.l === 'number') sum += levelsInTree(node.L);
+    if (typeof node.R?.l === 'number') sum += levelsInTree(node.R);
     return sum;
   }
 
-  function getInstructions(comb: Record<string, unknown>, itemName: string): SolutionStep[] {
-    const instructions: SolutionStep[] = [];
-    const c = comb as {
-      L?: ItemNode & Record<string, unknown>;
-      R?: ItemNode & Record<string, unknown>;
-      l?: number;
-      w?: number;
-      v?: number;
-    };
-
-    const keys: ('L' | 'R')[] = ['L', 'R'];
-    for (const key of keys) {
-      const child = c[key];
+  /**
+   * The merges in the tree, in the order to make them. Leaves are relabelled as they are
+   * reached: enchantment IDs become their names, and the item becomes `itemName`.
+   */
+  function stepsFromTree(node: ItemNode, itemName: string): SolutionStep[] {
+    const steps: SolutionStep[] = [];
+    for (const child of [node.L, node.R]) {
       if (!child) continue;
-      if (typeof (child as ItemNode).I === 'undefined') {
-        const childInstructions = getInstructions(
-          child as unknown as Record<string, unknown>,
-          itemName
-        );
-        instructions.push(...childInstructions);
-      }
-      const childI = (child as ItemNode).I;
-      if (typeof childI === 'number') {
-        const namespace = Object.keys(ID_LIST).find((k) => ID_LIST[k] === childI);
-        (child as ItemNode).I = (namespace ?? itemName) as string;
-      } else if (typeof childI === 'string' && !(childI in ID_LIST)) {
-        (child as ItemNode).I = itemName;
+      if (child.I === undefined) {
+        steps.push(...stepsFromTree(child, itemName));
+      } else if (typeof child.I === 'number') {
+        child.I = namespaces[child.I];
+      } else if (!(child.I in enchantIds)) {
+        child.I = itemName;
       }
     }
 
-    const left = c.L as ItemNode;
-    const right = c.R as ItemNode;
-    let mergeCost: number;
-    if (typeof (right as ItemNode & { v?: number }).v === 'number') {
-      mergeCost =
-        (right as ItemNode & { v: number }).v + 2 ** (left.w ?? 0) - 1 + 2 ** (right.w ?? 0) - 1;
-    } else {
-      mergeCost = (right.l ?? 0) + 2 ** (left.w ?? 0) - 1 + 2 ** (right.w ?? 0) - 1;
-    }
-    const work = Math.max(left.w ?? 0, right.w ?? 0) + 1;
-    instructions.push([left, right, mergeCost, experience(mergeCost), 2 ** work - 1]);
-    return instructions;
+    const target = node.L as ItemNode;
+    const sacrifice = node.R as ItemNode;
+    const sacrificeValue = typeof sacrifice.v === 'number' ? sacrifice.v : (sacrifice.l ?? 0);
+    const levels =
+      sacrificeValue + priorWorkPenalty(target.w ?? 0) + priorWorkPenalty(sacrifice.w ?? 0);
+    const priorWork = Math.max(target.w ?? 0, sacrifice.w ?? 0) + 1;
+    steps.push({
+      target,
+      sacrifice,
+      levels,
+      xp: experience(levels),
+      priorWorkPenalty: priorWorkPenalty(priorWork),
+    });
+    return steps;
   }
 
+  /** Index of the most valuable item, the first one if several tie. */
+  function mostValuableIndex(items: AnvilItem[]): number {
+    return items.reduce((best, item, i) => (item.value > items[best].value ? i : best), 0);
+  }
+
+  /**
+   * Find the cheapest order to put the enchantments on the item, by total levels or by the
+   * final prior work penalty.
+   */
   function process(
     itemName: string,
-    enchants: EnchantSelection[],
+    selection: EnchantSelection[],
     mode: CheapnessMode = 'levels'
   ): SolutionResult {
-    for (const k of Object.keys(results)) delete results[k];
-    const enchantObjs: InternalItem[] = enchants.map(([namespace, level]) => {
-      const enchantId = ID_LIST[namespace];
-      const weight = ENCHANTMENT2WEIGHT[enchantId];
-      const value = level * weight;
-      const obj = ItemObj('book', value, [enchantId]);
-      obj.c = { I: enchantId, l: obj.l, w: obj.w };
-      return obj;
+    memo = {};
+    const books = selection.map(([namespace, level]) => {
+      const id = enchantIds[namespace];
+      const book = newItem('book', level * weights[id], [id]);
+      book.tree = { I: id, l: book.value, w: book.priorWork };
+      return book;
     });
 
-    let mostExpensiveIdx = enchantObjs.reduce(
-      (maxIdx, item, idx, arr) => (item.l > arr[maxIdx].l ? idx : maxIdx),
-      0
-    );
-
-    let baseItem: InternalItem;
+    let base: AnvilItem;
     if (itemName === 'book') {
-      const mostExpensive = enchantObjs[mostExpensiveIdx];
-      const enchantId = mostExpensive.e[0];
-      baseItem = ItemObj(enchantId, mostExpensive.l, [enchantId]);
-      enchantObjs.splice(mostExpensiveIdx, 1);
-      mostExpensiveIdx = enchantObjs.reduce(
-        (maxIdx, item, idx, arr) => (item.l > arr[maxIdx].l ? idx : maxIdx),
-        0
-      );
+      // When enchanting a book, the most valuable book is the one the others go onto
+      const [first] = books.splice(mostValuableIndex(books), 1);
+      base = newItem(first.enchantIds[0], first.value, [first.enchantIds[0]]);
     } else {
-      baseItem = ItemObj('item');
+      base = newItem('item');
     }
 
-    const firstEnchant = enchantObjs[mostExpensiveIdx];
-    const mergedItem = MergeEnchants(baseItem, firstEnchant);
-    (mergedItem.c as { L?: Record<string, unknown> }).L = {
-      I: baseItem.i,
-      l: 0,
-      w: 0,
-    };
-    enchantObjs.splice(mostExpensiveIdx, 1);
+    if (books.length === 0) return noSolution(selection);
 
-    const allObjs = enchantObjs.concat(mergedItem);
-    const cheapestItems = cheapestItemsFromList(allObjs);
+    let byWork: ByPriorWork;
+    try {
+      // The most valuable book always goes on first
+      const [firstBook] = books.splice(mostValuableIndex(books), 1);
+      const start = merge(base, firstBook);
+      start.tree.L = { I: base.kind, l: 0, w: 0 };
+      byWork = cheapestByPriorWork([...books, start]);
+    } catch (error) {
+      if (error instanceof MergeTooExpensiveError) return noSolution(selection);
+      throw error;
+    }
 
-    let cheapestCost = Infinity;
-    let cheapestKey: number = 0;
-    for (const keyStr in cheapestItems) {
-      const key = Number(keyStr);
-      const item = cheapestItems[key];
-      const cost =
-        mode === 'levels' ? sumLevelsFromComb(item.c as Record<string, unknown>) : item.w;
-      if (cost < cheapestCost) {
-        cheapestCost = cost;
-        cheapestKey = key;
+    let best: AnvilItem | undefined;
+    let bestCost = Infinity;
+    for (const item of Object.values(byWork)) {
+      const cost = mode === 'levels' ? levelsInTree(item.tree) : item.priorWork;
+      if (cost < bestCost) {
+        bestCost = cost;
+        best = item;
       }
     }
-    const cheapestItem = cheapestItems[cheapestKey];
-    const instructions = getInstructions(cheapestItem.c as Record<string, unknown>, itemName);
+    if (!best) return noSolution(selection);
 
-    let maxLevels = 0;
-    for (const step of instructions) maxLevels += step[2];
-    const maxXp = experience(maxLevels);
-
+    const steps = stepsFromTree(best.tree, itemName);
+    const totalLevels = steps.reduce((sum, step) => sum + step.levels, 0);
     return {
-      item_obj: { ...cheapestItem, x: cheapestItem.x },
-      instructions,
-      extra: [maxLevels, maxXp],
-      enchants,
+      steps,
+      totalLevels,
+      totalXp: experience(totalLevels),
+      minimumXp: best.xp,
+      enchants: selection,
     };
   }
 
