@@ -4,15 +4,15 @@
 
 <img src="public/images/book.gif" alt="Enchant Order" width="192">
 
-Web tool to find the optimal order for combining enchantment books in Minecraft (minimize XP cost or prior work penalty).
+Web tool that finds the best order for combining enchantment books in Minecraft, for the lowest XP cost or prior work penalty.
 
 ## Features
 
-- **Optimal merge order**: Tries combinations to minimize total XP levels or prior work penalty.
-- **Item & enchantment picker**: Choose item type and select enchantments with level pills.
-- **Quick loadouts**: Preset enchant sets per item (e.g. Fortune / Silk Touch for tools).
-- **i18n**: Multiple languages (JSON in `public/languages/`); theme (system / light / dark).
-- **Responsive**: Works on desktop and mobile.
+- **Optimal Merge Order**: Finds the order with the lowest total XP levels or prior work penalty
+- **Item and Enchantment Picker**: Choose an item and select enchantments with level pills
+- **Quick Loadouts**: Preset enchantment sets for each item, such as Fortune or Silk Touch for tools
+- **Languages and Themes**: Many languages (JSON files in `public/languages/`) and a system, light, or dark theme
+- **Responsive**: Works on desktop and mobile
 
 ## Prerequisites
 
@@ -24,7 +24,7 @@ Web tool to find the optimal order for combining enchantment books in Minecraft 
 ```bash
 git clone https://github.com/haseebn19/enchant-order.git
 cd enchant-order
-npm install
+npm ci
 ```
 
 ## Usage
@@ -34,17 +34,11 @@ npm run dev
 ```
 
 1. Choose an item to enchant.
-2. Select enchantments (use quick loadouts or pick manually).
-3. Choose “Least XP/levels” or “Least prior work”.
-4. Click “Find optimal order” and follow the steps in the result panel.
+2. Select enchantments, or start from a quick loadout.
+3. Choose **Least XP/Levels** or **Least Prior Work Penalty**.
+4. Click **Calculate** and follow the steps in the result panel.
 
 ## Development
-
-### Setup
-
-```bash
-npm install
-```
 
 ### Testing
 
@@ -58,11 +52,14 @@ With coverage:
 npm run test:coverage
 ```
 
-### Linting
+### Linting and Formatting
 
 ```bash
 npm run lint
+npm run format:check
 ```
+
+`npm run format` applies the Prettier style. The language files in `public/languages` are left in the format they are synced from upstream in.
 
 ## Building
 
@@ -74,44 +71,33 @@ Output: `dist/`
 
 ## Project Structure
 
-```
+```text
 enchant-order/
-├── src/
-│   ├── components/   # EnchantGrid, ItemPicker, LoadoutPicker, SolutionPanel, ItemIcon
-│   ├── hooks/        # useLanguage, useTheme, useMatchMedia
-│   ├── data/         # enchantData, loadouts, itemCategories, itemIcons
-│   ├── lib/          # anvilCalculator, format
-│   ├── test/         # Test setup (e.g. matchMedia mock)
-│   ├── types/        # TypeScript types
-│   ├── App.tsx, App.css
-│   ├── main.tsx
-│   ├── index.css
-│   └── **/*.test.{ts,tsx}   # Tests colocated with source
-├── public/           # Static assets (languages/*.json, images/*.gif)
-├── index.html
-├── vite.config.ts
-├── vitest.config.ts
-└── .github/workflows/
-    ├── ci.yml             # Lint, test, build, and deploy to GitHub Pages
-    └── validate-lang-json.yml
++-- src/
+|   +-- components/   Item picker, loadouts, enchantment grid, and result panel
+|   +-- data/         Enchantments, item categories, and loadouts
+|   +-- hooks/        Language and theme hooks
+|   +-- lib/          Anvil calculator, number formatting, wiki links, and saved settings
+|   +-- types/        TypeScript types
+|   +-- App.tsx       Page layout and calculation
+|   +-- main.tsx      Entry point
++-- public/           Language files and item images
++-- scripts/          Upstream language sync
++-- .github/workflows/
+    +-- ci.yml                   Lint, test, build, and deploy to GitHub Pages
+    +-- validate-lang-json.yml   Language file checks
 ```
 
-## Adding a language
+Tests sit next to the code they cover, as `*.test.ts` and `*.test.tsx` files.
+
+## Adding a Language
 
 1. Add `public/languages/<code>.json` (see existing files for shape).
 2. Add the language to `LANGUAGES` in `src/constants.ts`.
 
-## Updating enchant data
+## Updating Enchantment Data
 
 Edit `src/data/enchantData.ts` to add or change enchantments, item compatibility, and weights. Use the same shape as existing entries (levelMax, weight, incompatible list, items list).
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
 ## Credits
 
@@ -123,3 +109,7 @@ Edit `src/data/enchantData.ts` to add or change enchantments, item compatibility
 ## License
 
 This project is licensed under the [GNU Affero General Public License v3.0](LICENSE).
+
+It is based on [iamcal/enchant-order](https://github.com/iamcal/enchant-order) by Cal Henderson, which is licensed under the MIT License. The original copyright and permission notice is in [LICENSE-UPSTREAM](LICENSE-UPSTREAM).
+
+The item images are from Minecraft and belong to Mojang. Enchant Order is not an official Minecraft product, and is not approved by or associated with Mojang or Microsoft.
